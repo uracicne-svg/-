@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}Мои заказы — ShopIS{% endblock %}
+{% block description %}Ваш личный кабинет: каталог товаров, корзина и история заказов в ShopIS.{% endblock %}
+
+{% block content %}
+<div class="page-wrap">
+
+  <!-- Слайдер -->
+  <div class="slider">
+    <div class="slider__track">
+      <div class="slider__slide" style="background:linear-gradient(135deg,#1a1d27,#2d3250)">
+        <div class="slider__slide-text">🛍️ Лучшие товары сезона</div>
+      </div>
+      <div class="slider__slide" style="background:linear-gradient(135deg,#1a2740,#2d3250)">
+        <div class="slider__slide-text">⚡ Быстрая доставка по всей стране</div>
+      </div>
+      <div class="slider__slide" style="background:linear-gradient(135deg,#271a27,#3d2d50)">
+        <div class="slider__slide-text">🎁 Скидки постоянным клиентам</div>
+      </div>
+      <div class="slider__slide" style="background:linear-gradient(135deg,#1a2720,#2d5040)">
+        <div class="slider__slide-text">🔒 Безопасные платежи</div>
+      </div>
+    </div>
+    <button class="slider__btn slider__btn--prev">&#8249;</button>
+    <button class="slider__btn slider__btn--next">&#8250;</button>
+    <div class="slider__dots">
+      <div class="slider__dot active"></div>
+      <div class="slider__dot"></div>
+      <div class="slider__dot"></div>
+      <div class="slider__dot"></div>
+    </div>
+  </div>
+
+  <!-- Каталог -->
+  <div class="section-header">
+    <h2 class="section-title">Каталог товаров</h2>
+    <!-- Кнопка корзины в шапке каталога -->
+    <button class="cart-trigger" onclick="openCart()" id="cart-trigger">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      Корзина
+      <span class="cart-count" id="cart-count" style="display:none">0</span>
+    </button>
+  </div>
+
+  <div class="products-grid" id="products-grid">
+    {% for p in products %}
+    <div class="product-card">
+      <div class="product-card__img">
+        {% if p.image_url %}
+          <img
+            src="{{ p.image_url | replace('w=400&h=300', 'w=274&h=206') }}&fm=webp&q=75"
+            srcset="{{ p.image_url | replace('w=400&h=300', 'w=274&h=206') }}&fm=webp&q=75 1x,
+                    {{ p.image_url | replace('w=400&h=300', 'w=548&h=412') }}&fm=webp&q=65 2x"
+            alt="{{ p.name }}"
+            width="274" height="206"
+            {% if loop.first %}fetchpriority="high" loading="eager"{% else %}loading="lazy"{% endif %}
+            decoding="async"/>
+        {% else %}
+          <div class="product-card__placeholder">{{ p.name[0] }}</div>
+        {% endif %}
+        {% if p.stock <= 5 %}
+          <span class="product-card__badge">Осталось {{ p.stock }} шт.</span>
+        {% endif %}
+      </div>
+      <div class="product-card__body">
+        <h3 class="product-card__name">{{ p.name }}</h3>
+        <p class="product-card__desc">{{ p.description or '' }}</p>
+        <div class="product-card__footer">
+          <span class="product-card__price">{{ "{:,.0f}".format(p.price) }} ₽</span>
+          <button class="btn btn--primary btn--sm"
+            onclick="addToCart('{{ p.id }}', '{{ p.name }}', {{ p.price }}, '{{ p.image_url or '' }}', {{ p.stock }})">
+            В корзину
+          </button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Мои заказы -->
+  <div class="page-header" style="margin-top:2rem">
+    <h2 class="section-title">Мои заказы</h2>
+  </div>
+
+  {% if orders %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr><th>Номер</th><th>Дата</th><th>Сумма</th><th>Статус</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><span class="order-id">#{{ o.id }}</span></td>
+          <td>{{ o.created_at }}</td>
+          <td><strong>{{ "{:,.0f}".format(o.total) }} ₽</strong></td>
+          <td><span class="badge badge--{{ o.status }}">{{ o.status | status_label }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+    <p>У вас пока нет заказов</p>
+    <p style="font-size:.85rem;color:var(--c-text-muted)">Добавьте товары в корзину и оформите заказ</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- ═══════════════ КОРЗИНА (боковая панель) ═══════════════ -->
+<div class="cart-overlay" id="cart-overlay" onclick="closeCart(event)">
+  <div class="cart-panel" id="cart-panel">
+    <div class="cart-header">
+      <h2 class="cart-title">Корзина</h2>
+      <button class="cart-close" onclick="closeCart()">×</button>
+    </div>
+
+    <div class="cart-body" id="cart-body">
+      <!-- Заполняется JS -->
+    </div>
+
+    <div class="cart-footer" id="cart-footer" style="display:none">
+      <div class="cart-total">
+        Итого: <strong id="cart-total-price">0 ₽</strong>
+      </div>
+      <div class="form-group" style="margin-bottom:.75rem">
+        <label class="form-label">Комментарий к заказу</label>
+        <textarea class="form-input" id="cart-comment" rows="2" placeholder="Пожелания..."></textarea>
+      </div>
+      <button class="btn btn--primary btn--full" onclick="submitOrder()">
+        Оформить заказ
+      </button>
+      <button class="btn btn--ghost btn--full" style="margin-top:.5rem" onclick="clearCart()">
+        Очистить корзину
+      </button>
+    </div>
+
+    <div class="cart-empty" id="cart-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+      <p>Корзина пуста</p>
+      <p style="font-size:.8rem;color:var(--c-text-muted)">Добавьте товары из каталога</p>
+    </div>
+  </div>
+</div>
+
+<!-- Скрытая форма для отправки заказа -->
+<form id="order-form" method="POST" action="{{ url_for('new_order') }}" style="display:none">
+  <input type="hidden" name="product_id" id="form-product-id"/>
+  <input type="hidden" name="quantity"   id="form-quantity"/>
+  <input type="hidden" name="comment"    id="form-comment"/>
+</form>
+
+<script>
+// ── Корзина (хранится в памяти страницы) ──────────────────────
+let cart = {};  // { product_id: { name, price, qty, image_url, stock } }
+
+function addToCart(id, name, price, imageUrl, stock) {
+  if (cart[id]) {
+    if (cart[id].qty >= stock) {
+      showToast('Больше нет в наличии', 'error');
+      return;
+    }
+    cart[id].qty++;
+  } else {
+    cart[id] = { name, price, qty: 1, imageUrl, stock };
+  }
+  updateCartUI();
+  showToast(name + ' добавлен в корзину', 'success');
+  openCart();
+}
+
+function removeFromCart(id) {
+  delete cart[id];
+  updateCartUI();
+}
+
+function changeQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) { removeFromCart(id); return; }
+  if (cart[id].qty > cart[id].stock) { cart[id].qty = cart[id].stock; }
+  updateCartUI();
+}
+
+function clearCart() {
+  cart = {};
+  updateCartUI();
+}
+
+function updateCartUI() {
+  const ids   = Object.keys(cart);
+  const total = ids.reduce((s, id) => s + cart[id].price * cart[id].qty, 0);
+  const count = ids.reduce((s, id) => s + cart[id].qty, 0);
+
+  // Счётчик на кнопке
+  const badge = document.getElementById('cart-count');
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+  else           { badge.style.display = 'none'; }
+
+  // Итого
+  document.getElementById('cart-total-price').textContent = total.toLocaleString('ru-RU') + ' ₽';
+
+  const body   = document.getElementById('cart-body');
+  const footer = document.getElementById('cart-footer');
+  const empty  = document.getElementById('cart-empty');
+
+  if (ids.length === 0) {
+    body.innerHTML   = '';
+    footer.style.display = 'none';
+    empty.style.display  = 'flex';
+    return;
+  }
+
+  empty.style.display  = 'none';
+  footer.style.display = 'block';
+
+  body.innerHTML = ids.map(id => {
+    const item = cart[id];
+    const subtotal = (item.price * item.qty).toLocaleString('ru-RU');
+    const img = item.imageUrl
+      ? `<img src="${item.imageUrl}" alt="${item.name}"/>`
+      : `<div class="cart-item__placeholder">${item.name[0]}</div>`;
+    return `
+      <div class="cart-item" id="cart-item-${id}">
+        <div class="cart-item__img">${img}</div>
+        <div class="cart-item__info">
+          <div class="cart-item__name">${item.name}</div>
+          <div class="cart-item__price">${item.price.toLocaleString('ru-RU')} ₽ × ${item.qty} = <strong>${subtotal} ₽</strong></div>
+          <div class="cart-item__controls">
+            <button class="qty-btn" onclick="changeQty('${id}', -1)">−</button>
+            <span class="qty-val">${item.qty}</span>
+            <button class="qty-btn" onclick="changeQty('${id}', 1)">+</button>
+            <button class="cart-item__remove" onclick="removeFromCart('${id}')">Удалить</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Оформление заказа (по одному товару через форму) ──────────
+function submitOrder() {
+  const ids = Object.keys(cart);
+  if (ids.length === 0) return;
+  const comment = document.getElementById('cart-comment').value;
+
+  // Отправляем первый товар (можно расширить до multi-item)
+  // Для простоты отправляем каждый товар отдельным запросом через fetch
+  const promises = ids.map(id => {
+    const fd = new FormData();
+    fd.append('product_id', id);
+    fd.append('quantity',   cart[id].qty);
+    fd.append('comment',    comment);
+    return fetch('/order/new', { method: 'POST', body: fd });
+  });
+
+  Promise.all(promises).then(() => {
+    cart = {};
+    updateCartUI();
+    closeCart();
+    showToast('Заказы успешно оформлены!', 'success');
+    setTimeout(() => location.reload(), 1200);
+  }).catch(() => {
+    showToast('Ошибка при оформлении', 'error');
+  });
+}
+
+// ── Открытие/закрытие ─────────────────────────────────────────
+function openCart() {
+  document.getElementById('cart-overlay').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeCart(e) {
+  if (e && e.target !== document.getElementById('cart-overlay')) return;
+  document.getElementById('cart-overlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// ── Toast ─────────────────────────────────────────────────────
+function showToast(msg, type) {
+  const container = document.querySelector('.toast-container') || (() => {
+    const c = document.createElement('div');
+    c.className = 'toast-container';
+    document.body.appendChild(c);
+    return c;
+  })();
+  const t = document.createElement('div');
+  t.className = 'toast toast--' + type;
+  t.textContent = msg;
+  container.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; t.style.transform='translateY(10px)'; t.style.transition='.3s'; setTimeout(()=>t.remove(),300); }, 3000);
+}
+
+// Инит
+updateCartUI();
+</script>
+
+<!-- Слайдер -->
+<script>
+(function(){
+  const track = document.querySelector('.slider__track');
+  const dots  = document.querySelectorAll('.slider__dot');
+  let cur = 0, timer;
+  function go(n){ cur=(n+4)%4; track.style.transform=`translateX(-${cur*100}%)`; dots.forEach((d,i)=>d.classList.toggle('active',i===cur)); }
+  document.querySelector('.slider__btn--prev').onclick = ()=>{ go(cur-1); reset(); };
+  document.querySelector('.slider__btn--next').onclick = ()=>{ go(cur+1); reset(); };
+  dots.forEach((d,i)=>d.addEventListener('click',()=>{ go(i); reset(); }));
+  function reset(){ clearInterval(timer); timer=setInterval(()=>go(cur+1),3000); }
+  reset();
+})();
+</script>
+{% endblock %}
